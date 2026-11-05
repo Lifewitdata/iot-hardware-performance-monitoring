@@ -44,7 +44,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt ruff
 
-      - name: Lint (correctness rules: E9, F)
+      - name: "Lint (correctness rules E9, F)"
         run: ruff check .
 
       - name: Test suite (includes the live PostgreSQL integration test)

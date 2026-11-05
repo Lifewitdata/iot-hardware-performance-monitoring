@@ -7,12 +7,17 @@ from src.config import ROOT,ANALOG
 st.set_page_config(page_title='Compressor monitoring',layout='wide')
 st.title('Compressor performance monitoring')
 st.caption('MetroPT-3 real sensor history. Alerts indicate unusual observations; they do not confirm hardware failure.')
+FULL=ROOT/'data/processed/monitoring_5min.parquet'
+SAMPLE=ROOT/'data/sample/monitoring_5min_sample.parquet'
+source=FULL if FULL.exists() else SAMPLE
+if not source.exists():
+    st.info('Run python -m src.pipeline --csv data/raw/MetroPT3.csv first, or restore data/sample/ from git.'); st.stop()
 @st.cache_data
-def load():
-    return pd.read_parquet(ROOT/'data/processed/monitoring_5min.parquet')
-if not (ROOT/'data/processed/monitoring_5min.parquet').exists():
-    st.info('Run python -m src.pipeline --csv data/raw/MetroPT3.csv first.'); st.stop()
-d=load()
+def load(path):
+    return pd.read_parquet(path)
+d=load(source)
+if source==SAMPLE:
+    st.caption('Committed sample: 2020-04-15 to 2020-04-30, including reported event E01. Run the pipeline for the full seven months.')
 dates=st.sidebar.date_input('Date range',value=(d.index.min().date(),d.index.max().date()),min_value=d.index.min().date(),max_value=d.index.max().date())
 if len(dates)!=2: st.info('Select a start and end date.'); st.stop()
 x=d.loc[str(dates[0]):str(dates[1])]

@@ -6,6 +6,7 @@
 - One warning originates in the installed pytest plugin's deprecated API; no failed project checks.
 - PostgreSQL 17.11 standalone: created the schema, loaded all 1,516,948 readings, repeated the upsert without changing the row count, and executed every monitoring/anomaly/reliability SQL query. Output is in `postgresql_standalone_verification.txt`.
 - Live PostgreSQL connection test: skipped because this environment prohibits TCP and Unix-domain sockets. The psycopg COPY loader is implemented but its connection path still requires validation on a machine with PostgreSQL running. The Docker configuration targets PostgreSQL 16; that exact image was not run here.
+- Follow-up: GitHub Actions now starts a `postgres:16` service container and exports `TEST_DATABASE_URL`, so `tests/test_postgres.py` executes on every push. That workflow is the first execution of both the live psycopg path and the PostgreSQL 16 image. Neither is verified until the CI run reports green.
 - Streamlit: AppTest loaded all four tabs and four KPI cards and changed both detector and sensor selectors without exceptions. No public deployment was performed.
 - Analysis charts: inspected for readable labels, plotted data and unclipped axes. Selected notebook plots were also visually checked.
 - Archive: validated required paths, six executed notebooks and ZIP integrity. The raw CSV and full row-level Parquet are intentionally excluded. Aggregated outputs, model artifacts, report, app and all source code are included.

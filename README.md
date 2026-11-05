@@ -1,5 +1,9 @@
 # IoT Hardware Performance Monitoring
 
+[![CI](https://github.com/Lifewitdata/iot-hardware-performance-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/Lifewitdata/iot-hardware-performance-monitoring/actions/workflows/ci.yml)
+![license: MIT](https://img.shields.io/badge/license-MIT-green)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+
 Condition monitoring for a real industrial air compressor, built on the **MetroPT-3** dataset: 1,516,948 sensor readings spanning 2020-02-01 to 2020-09-01.
 
 The project covers the full path — ingestion, data-quality auditing, feature engineering, six anomaly detectors evaluated on a frozen chronological split, a failure investigation, a Streamlit app, PostgreSQL loading, and four published Tableau dashboards.
@@ -86,7 +90,7 @@ notebooks/     01–06, executed with charts and written interpretation
 app/           Streamlit dashboard (performance, quality, anomaly, failure tabs)
 dashboards/    published Tableau workbook (.twbx) + the specification it followed
 sql/           PostgreSQL schema and engineering queries
-data/          raw (git-ignored), reference failure intervals, processed outputs
+data/          sample (committed), raw (git-ignored), reference intervals, processed outputs
 reports/       computed report, figures, quality audit, run manifest, verification
 tests/         integrity, leakage, event-boundary, app and optional DB tests
 docs/          dataset dictionary and methodology
@@ -99,14 +103,16 @@ python -m venv .venv
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 # macOS/Linux: source .venv/bin/activate
 python -m pip install -r requirements.txt
+python -m pytest -q                 # 12 passed, 1 skipped; green on a fresh clone
+streamlit run app/streamlit_app.py  # opens against the committed sample
 ```
 
-Download `MetroPT3(AirCompressor)(1).csv` from [UCI](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), place it in `data/raw/` and rename it `MetroPT3.csv`. Check it against `reports/run_manifest.json` if you are reproducing the delivered numbers.
+**The repository runs as cloned.** `data/sample/monitoring_5min_sample.parquet` (1.4 MB, 2020-04-15 to 2020-04-30, covering reported event E01) stands in for the full five-minute table, and the app captions which source it loaded. `pip install -e .` also works if you want `src` importable elsewhere.
+
+For the complete seven months, download `MetroPT3(AirCompressor)(1).csv` from [UCI](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), place it in `data/raw/` and rename it `MetroPT3.csv`. Check it against `reports/run_manifest.json` if you are reproducing the delivered numbers.
 
 ```bash
 python -m src.pipeline --csv data/raw/MetroPT3.csv   # regenerates every figure and table above
-python -m pytest -q                                   # 12 passed, 1 skipped
-streamlit run app/streamlit_app.py                    # local dashboard
 ```
 
 Optional, without a Jupyter server: `python scripts/execute_notebooks.py` reruns all six notebooks. Exact packages for the delivered run are in `requirements-lock.txt`.
@@ -142,12 +148,13 @@ Loading uses a transaction, temporary staging, PostgreSQL `COPY` and timestamp u
 
 - Pipeline ran end to end on the real CSV; source SHA-256, split sizes and thresholds recorded in `reports/run_manifest.json`.
 - All six notebooks executed — 30 cells, outputs saved.
-- 12 tests passed, 1 skipped (the skipped one needs a live PostgreSQL socket).
+- **12 passed, 1 skipped**, re-confirmed on Python 3.11 in an isolated environment — and re-run with the full Parquet removed, to prove the committed sample alone satisfies the app test.
 - PostgreSQL 17.11 standalone: schema created, all 1,516,948 readings loaded, repeat upsert left the row count unchanged, every SQL query executed.
 - Streamlit: `AppTest` exercised all four tabs, four KPI cards and both selectors without exceptions.
 - Tableau workbook built and published; the four live views above were confirmed by rendering each one.
+- `ruff check .` (rules E9, F) passes and `pip install -e .` resolves and imports.
 
-Still unvalidated on this machine: the live psycopg connection path (no TCP/Unix sockets permitted) and the PostgreSQL 16 Docker image specifically. Details in [`reports/verification.md`](reports/verification.md).
+GitHub Actions runs the linter, the suite and a **PostgreSQL 16 service** on every push. That service is the first-ever execution of the live psycopg connection path and of the image `docker-compose.yml` targets — this machine allows neither Docker nor outbound database sockets, so neither could be verified locally. Until the CI badge above is green, treat the integration test as unrun rather than passing. Details in [`reports/verification.md`](reports/verification.md).
 
 ## Limits you should read before quoting any number
 
@@ -157,4 +164,12 @@ Recommended next steps, in order: obtain shutdown/repair/operating-hour records,
 
 ## Dataset and licence
 
-Davari, Veloso, Ribeiro and Gama (2021). [MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), UCI Machine Learning Repository, DOI 10.24432/C5VW3R, CC BY 4.0. This project analyses the 2020 MetroPT-3 release, not the different 2022 MetroPT data. Redistributed here only as aggregated derived outputs; the raw dataset is fetched from the source above.
+Davari, Veloso, Ribeiro and Gama (2021). [MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), UCI Machine Learning Repository, DOI 10.24432/C5VW3R, CC BY 4.0. This project analyses the 2020 MetroPT-3 release, not the different 2022 MetroPT data. The raw dataset is fetched from the source above; only aggregated derived outputs are committed here.
+
+Code, notebooks and reports are [MIT](LICENSE) licensed. The dataset and its derivatives are **not** relicensed by that file — see the note at the end of `LICENSE`.
+
+## Keywords
+
+Hardware Data Analytics · IoT Sensor Data · Large-Scale Field Data · Sensor Data Monitoring · Data Ingestion · Data Processing · Data Storage · Reliable Data Pipelines · Data Quality · Hardware Performance Monitoring · Performance Metrics · Statistical Modelling · Machine Learning · Anomaly Detection · Trend Analysis · Time-Series Evaluation · Python · pandas · scikit-learn · SQL · PostgreSQL · Tableau · Python Visualisation · Performance Dashboards · Reporting · Data Storytelling · Actionable Insights · Data-Driven Recommendations
+
+Deliberately absent: this project contains no firmware or software-version data, uses no AWS or QuickSight, involves no vehicle telematics, and does not compute MTBF, MTTR, uptime or remaining useful life — the source data cannot support those claims.

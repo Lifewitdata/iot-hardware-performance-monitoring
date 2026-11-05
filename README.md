@@ -1,96 +1,74 @@
-# Project status - audit correction
-
-The previous Git-only ZIP omitted the raw CSV and analysis exports. That package could not run immediately after extraction. The corrected full ZIP includes them in a single project folder. Install requirements first; Python dependencies are not bundled. GitHub tracking still excludes the large CSV.
-
-The supplied Tableau workbook uses the raw sensor extract and rules (`TP3 < 7`, `Oil_level = 1`). It does **not** display the Python Isolation Forest alerts or the reported event intervals. The Python model metrics in the findings/PDF therefore do not measure the Tableau dashboard's flags. The preview PNGs are Python plots, not Tableau screenshots.
-
-PostgreSQL code has not been exercised against a live database. Its loader currently appends to a fresh table and is not yet an idempotent production ingestion process. The notebooks and model are exploratory baselines; model comparison, validated lead time, and production deployment remain future work.
-
 # IoT Hardware Performance Monitoring
 
-An end-to-end sensor analytics project using the MetroPT-3 air-compressor dataset. It covers data understanding, validation, repeatable processing, hardware monitoring, statistical and machine-learning anomaly detection, and failure-window investigation. Alerts are investigation leads; the dataset does not provide row-level ground-truth labels.
+Real MetroPT-3 compressor readings, reproducible quality checks, six executed analytical notebooks, statistical/ML anomaly detectors and four engineering dashboard views.
 
-**Tableau Public:** [Four-dashboard workbook](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview) · **Project report:** [PDF](reports/IoT_Hardware_Performance_Monitoring_Project_Report.pdf)
+**Live Tableau Public dashboard:** [Open the four-dashboard IoT Hardware Performance workbook](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview)
 
-## What is in this repository
+Open [START_HERE.html](START_HERE.html) for the illustrated offline report. Start with [the executed analysis report](reports/analysis_report.md), then open notebooks 01–06. Results are generated from the real CSV; synthetic values occur only in tests.
 
-- `data/raw/`: source CSV (large; ~209 MB).
-- `dashboards/hardware_performance.twbx`: packaged Tableau workbook with four dashboards and its embedded Hyper extract.
-- `dashboards/screenshots/`: space for exported dashboard captures.
-- `app/streamlit_app.py`: interactive local companion app for sensor exploration.
-- `tests/`: focused tests for validation and reliability helpers.
-- `reports/IoT_Hardware_Performance_Monitoring_Project_Report.pdf`: concise project and findings report.
-- `data/reference/failure_events.csv`: four reported air-leak periods transcribed from the dataset documentation, with source caveats retained.
-- `ingestion/`: loader, schema/quality validation, replay simulator, and analysis pipeline.
-- `src/`: preprocessing, time-aware features, statistical/ML anomaly scoring, event evaluation, and reliability summaries.
-- `notebooks/`: six focused analysis notebooks, from dataset understanding through event investigation.
-- `sql/`: PostgreSQL schema and monitoring, anomaly, and reliability queries.
-- `reports/generated/`: dashboard-ready hourly/minute, alert, event, and daily availability exports created by the pipeline.
-- `reports/initial_findings.md`: first-pass findings calculated from the supplied CSV.
-- `docs/`: sensor dictionary, methodology, caveats, and dashboard specification.
-
-## Important dataset facts
-
-The source CSV has **1,516,948 rows**, 17 source columns (a row index, timestamp, and 15 sensor signals), spans **2020-02-01 00:00:00 to 2020-09-01 03:59:50**, and contains no missing values or exact duplicate records. Timestamps are ordered and mostly 10 seconds apart; the supplied row index advances by 10. This is materially different from the PDF's stated 15,169,480 points at 1 Hz. The CSV therefore appears to be a ten-second sampled file, and contains occasional timestamp gaps. Use the CSV's observed timestamps for any interval or availability calculation; do not treat its row count as one-second coverage.
-
-The first column (`Unnamed: 0`) is an exported index, not a sensor. The loader drops it while preserving the timestamp and all 15 signals. The source contains analog signals and binary/control signals; see `docs/data_dictionary.md`.
-
-## Setup
+## Run locally (Python 3.11+)
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
 # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-## Run the pipeline
-
-From the repository root:
+The delivered processed datasets and Tableau-ready five-minute extract are included in `data/processed/`. The original raw sensor file is not included; obtain MetroPT-3 from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset) and place it at `data/raw/MetroPT3.csv` when you need to rerun the full pipeline.
 
 ```bash
-python ingestion/validate_sensor_data.py "data/raw/MetroPT3(AirCompressor).csv" --output data/processed/quality_report.json
-python ingestion/load_sensor_data.py
-python ingestion/run_analysis.py
+python -m src.pipeline --csv data/raw/MetroPT3.csv
+python -m pytest -q
+streamlit run app/streamlit_app.py
 ```
 
-The loader writes typed Parquet and CSV files plus a quality report. The analysis command creates one-minute monitoring data, statistical and Isolation Forest alert scores, daily coverage metrics, event-window summaries, and a JSON evaluation note. Outputs are ignored by Git so the source repository stays manageable. The source CSV is intentionally retained locally but ignored by Git because it exceeds GitHub's 100 MB single-file limit. Download the MetroPT-3 file from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2Bdataset) and place `MetroPT3(AirCompressor).csv` in `data/raw/`.
+The complete pipeline writes cleaned row-level Parquet, quarantine records, five-minute metrics, daily KPIs, model comparison, cycle details, event investigation, charts, report and fitted model. It is a batch historical monitor. JSONL replay demonstrates ingestion timing and is not an online model-serving system.
 
-The model uses minute-level aggregates. The Isolation Forest's reference baseline ends before the first reported event. Statistical flags use trailing 30-minute z-scores and a 4 standard-deviation threshold. These are starting parameters for investigation, not validated operating limits. Event-window precision/recall depend on the chosen reported windows and one-hour lead allowance; they are not equivalent to verified failure classification metrics.
+```bash
+python -m ingestion.validate_sensor_data data/raw/MetroPT3.csv
+python -m ingestion.streaming_simulator data/raw/MetroPT3.csv --limit 100 --delay 0.1
+```
 
 ## PostgreSQL
 
-Create a database, set `DATABASE_URL` (see `.env.example`), then execute `sql/schema.sql`. The optional `--postgres` flag on the loader writes the sensor readings to `monitoring.sensor_readings`:
+Set `POSTGRES_PASSWORD` in a local `.env` copied from `.env.example`, then run `docker compose up -d`. Set `DATABASE_URL` in your shell; the Python loader does not load `.env` automatically.
 
 ```bash
-python ingestion/load_sensor_data.py --postgres
+# Bash
+export DATABASE_URL='postgresql://metropt:YOUR_PASSWORD@localhost:5432/metropt'
+# PowerShell equivalent: $env:DATABASE_URL='postgresql://metropt:YOUR_PASSWORD@localhost:5432/metropt'
+python -m ingestion.load_sensor_data
 ```
 
-The ingestion is designed for a fresh table. For repeated production loads, add an explicit upsert/checkpoint policy and an ingestion batch identifier before rerunning; do not append the complete history blindly.
+The loader uses a transaction, temporary staging, PostgreSQL COPY and timestamp upserts. Rerunning the same input does not duplicate rows. SQL files contain monitoring, event and telemetry-gap queries. Set `TEST_DATABASE_URL` to a disposable database to run the integration test. See [reports/verification.md](reports/verification.md) for what was actually executed in this build.
 
-## Streaming replay
+## Tableau dashboard
 
-The simulator replays historical records as JSON Lines, optionally sleeping between records:
+The Tableau Public workbook is published here:
 
-```bash
-python ingestion/streaming_simulator.py --limit 1000 --output data/processed/replay.jsonl
-```
+**[IoT Hardware Performance Monitoring — Tableau Public](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview)**
 
-It is a local replay utility, not a live broker or production streaming system.
+The included [Tableau guide](dashboards/tableau_guide.md) documents the dashboard data and build details. The published dashboard is the interactive, hosted visualization; the supporting analysis files and Tableau-ready extract are in this repository.
 
-## Notebooks and dashboard
+## Project navigation
 
-Start Jupyter from the repository root and run `notebooks/01_data_understanding.ipynb` through `06_failure_investigation.ipynb` in order. The Tableau dashboard layout, data sources, and KPI definitions are in `docs/dashboard_spec.md`; generated CSVs in `reports/generated/` are prepared for Tableau Public.
+- `ingestion/`: validate, load PostgreSQL, replay recorded telemetry.
+- `src/`: preprocessing, causal features, six detectors, evaluation and reliability investigation.
+- `notebooks/`: six notebooks with executed analysis, charts and interpretations.
+- `data/reference/`: documented failure intervals.
+- `data/processed/`: calculated outputs and Tableau-ready CSV/Parquet extracts.
+- `sql/`: PostgreSQL schema and engineering queries.
+- `app/`: Streamlit dashboard with performance, quality, anomaly and failure views.
+- `reports/`: computed report, charts, data-quality audit and provenance.
+- `tests/`: data integrity, leakage, event boundaries, app and optional database tests.
+- `docs/`: dataset dictionary and methodology.
+- `dashboards/`: Tableau data guide.
 
-The four-dashboard Tableau workbook is also published on [Tableau Public](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview). Four static preview visuals are in `dashboards/screenshots/`; these are locally rendered previews from the same dataset. For the local companion app, run `streamlit run app/streamlit_app.py` from the project root. The app reads the same raw CSV; run the analysis pipeline first to populate its anomaly alert page.
+## Interpretation
 
-Run the focused unit checks with `pytest -q`.
+February trains; March calibrates; April onward tests. Proxy precision/recall/F1 compare alerts with documented intervals, not complete ground truth. Outside-window alerts are not necessarily false. Reported event duration is not actual downtime. No MTBF, MTTR, RUL or deployment benefit is claimed without evidence. Flatline flags require engineering review.
 
-## Responsible interpretation
+Dataset attribution: Davari et al. (2021), [MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), DOI 10.24432/C5VW3R, CC BY 4.0. Timestamps are kept in their original unspecified local timezone.
 
-- Reported events are sparse maintenance/failure records, not labels for every sensor row.
-- High-stress air-leak periods may explain some unusual behavior, but temporal association does not establish causality.
-- Do not describe every model alert as a confirmed fault or claim predictive lead time without a defined event label, validated threshold, and time-based evaluation.
-- The maintenance date shown for F2 in the source documentation appears earlier than that reported event; the reference file flags this for verification.
-- The source spans into September 1 despite the general February–August description.
-
+To rerun all six notebooks without a Jupyter server: `python scripts/execute_notebooks.py`. Exact packages used for the delivered run are in [requirements-lock.txt](requirements-lock.txt).

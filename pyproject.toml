@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iot-hardware-performance-monitoring"
+version = "1.0.0"
+description = "Condition monitoring and anomaly detection on MetroPT-3 industrial compressor telemetry"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Isfaque Ansari" }]
+keywords = [
+  "predictive-maintenance",
+  "anomaly-detection",
+  "sensor-data",
+  "time-series",
+  "tableau",
+]
+
+# Single source of truth: the analysis environment is requirements.txt.
+# `pip install .` and `pip install -r requirements.txt` resolve identically.
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.6"]
+
+[tool.setuptools]
+packages = ["src", "ingestion"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+# Notebooks are exploratory and import for later cells; linting them produces
+# false positives rather than defects.
+extend-exclude = ["notebooks", ".venv", "build", "dist"]
+
+[tool.ruff.lint]
+# Correctness only: syntax errors (E9) and pyflakes (F). The codebase uses a
+# deliberately compact style, so formatting rules (E5/E7) are not enforced.
+select = ["E9", "F"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

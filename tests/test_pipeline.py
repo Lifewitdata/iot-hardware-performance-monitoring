@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from src.config import ANALOG,DIGITAL,SENSORS
+from src.config import ANALOG,DIGITAL
 from src.preprocessing import clean_readings
 from src.feature_engineering import aggregate_readings,label_events,assign_splits
 from src.anomaly_detection import fit_and_score

@@ -1,21 +1,98 @@
 # IoT Hardware Performance Monitoring
 
-Real MetroPT-3 compressor readings, reproducible quality checks, six executed analytical notebooks, statistical/ML anomaly detectors and four engineering dashboard views.
+Condition monitoring for a real industrial air compressor, built on the **MetroPT-3** dataset: 1,516,948 sensor readings spanning 2020-02-01 to 2020-09-01.
 
-Open `START_HERE.html` for the illustrated offline report. Start with [the executed analysis report](reports/analysis_report.md), then open notebooks 01–06. Results are generated from the real CSV; synthetic values occur only in tests.
+The project covers the full path — ingestion, data-quality auditing, feature engineering, six anomaly detectors evaluated on a frozen chronological split, a failure investigation, a Streamlit app, PostgreSQL loading, and four published Tableau dashboards.
+
+What makes it unusual is the discipline rather than the scope: event labels are used only for scoring, nothing is tuned on test data, and reliability numbers the data cannot support (MTBF, MTTR, downtime, RUL) are deliberately **not** reported. `START_HERE.html` is the illustrated offline version of this document.
 
 ## Live dashboards
 
-Four dashboards are published on [Tableau Public](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview) as the workbook `IoT_Hardware_Performance_Monitoring` (author: Isfaque Ansari):
+Published on [Tableau Public](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview) as `IoT_Hardware_Performance_Monitoring` (Isfaque Ansari):
 
-- [01 Compressor Overview](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview) — reservoir and panel pressure, temperatures, current and load share over time.
-- [02 Sensor Monitoring](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/02SensorMonitoring) — per-signal cards, including the share of digital readings equal to 1.
-- [03 Anomaly Investigation](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/03AnomalyInvestigation) — rule-based screening flags for engineering review.
-- [04 Data Quality](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/04DataQuality) — completeness, observation volume, missing fields and invalid digital values by day.
+| Dashboard | What it answers |
+| --- | --- |
+| [01 Compressor Overview](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/01CompressorOverview) | Are pressure, temperature, current and load behaving normally over time? |
+| [02 Sensor Monitoring](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/02SensorMonitoring) | Per-signal behaviour, including the share of digital readings equal to 1. |
+| [03 Anomaly Investigation](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/03AnomalyInvestigation) | Which rule-based flags an engineer should actually open. |
+| [04 Data Quality](https://public.tableau.com/app/profile/isfaque.ansari5273/viz/IoT_Hardware_Performance_Monitoring/04DataQuality) | Completeness, observation volume, missing fields and invalid digital values by day. |
 
-The packaged workbook with its embedded extract is [`dashboards/IoT_Hardware_Performance_Monitoring.twbx`](dashboards/IoT_Hardware_Performance_Monitoring.twbx); open it in Tableau Desktop to explore offline. Build notes are in [`dashboards/tableau_guide.md`](dashboards/tableau_guide.md).
+[`dashboards/IoT_Hardware_Performance_Monitoring.twbx`](dashboards/IoT_Hardware_Performance_Monitoring.twbx) packages the same workbook with its extract embedded, so it opens in Tableau Desktop without regenerating any data. The design it was built from is in [`dashboards/tableau_guide.md`](dashboards/tableau_guide.md).
 
-## Run locally (Python 3.11+)
+## What the analysis found
+
+| Measurement | Result |
+| --- | --- |
+| Readings analysed | 1,516,948 over 7 months (median 10 s cadence, p99 12 s) |
+| Calendar coverage | 82.36% — 331 gaps longer than three sampling intervals, longest 48.03 h |
+| Five-minute bins model-eligible | 48,279 of 61,392 (≥80% coverage, ≥95% complete, <20% flatlined) |
+| Observed operating means | 9.000 bar panel pressure, 62.64 °C oil temperature, 2.023 A motor current |
+| Loaded-state runs | 15,539 complete runs, median 2.15 min |
+| Suspect telemetry | 50,338 readings where all 7 analog sensors held identical for ≥10 min |
+
+### Detector comparison (April onward, held out)
+
+Precision, recall and F1 measure *agreement with the four documented event intervals*, not confirmed faults. An alert requires the current score to exceed its threshold **and** one of the two previous bins to exceed, with all three bins quality-eligible.
+
+| Detector | Proxy precision | Proxy recall | Proxy F1 | Events detected | Outside-window episodes / observed day |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| cusum | 0.607 | 0.936 | **0.736** | 75% | 0.12 |
+| mahalanobis | 0.599 | 0.937 | 0.731 | 75% | 0.18 |
+| threshold | 0.598 | 0.937 | 0.730 | 75% | 0.19 |
+| zscore | 0.598 | 0.937 | 0.730 | 75% | 0.18 |
+| isolation_forest | 0.045 | 0.001 | 0.002 | 25% | 0.18 |
+| rolling_z | 0.000 | 0.000 | 0.000 | 0% | 0.00 |
+
+The honest reading: the simple statistical detectors agreed with the documented intervals more often than the 200-tree Isolation Forest under this alert rule. That is a descriptive comparison on four events from one compressor — it is not evidence that a CUSUM beats unsupervised ML, and no production model is selected from it.
+
+![Detector comparison](reports/figures/model_comparison.png)
+
+### Sensor shift around documented failures
+
+Each event is compared against the preceding seven days, excluding other events and poor-quality bins. Hourly-block bootstrap, 1,000 resamples, Welch tests with Benjamini–Hochberg correction. Exploratory association, not causal mechanism.
+
+| Event | Panel pressure TP3 | Oil temperature | Motor current |
+| --- | ---: | ---: | ---: |
+| E01 | −0.246 bar | +16.32 °C | +3.67 A |
+| E02 | −0.407 bar | +9.12 °C | +2.95 A |
+| E03 | −1.026 bar | +10.93 °C | +3.57 A |
+| E04 | −0.483 bar | +14.30 °C | +2.46 A |
+
+Oil temperature and motor current rise in all four events while panel pressure falls — though for E04 the pressure interval crosses zero ([-1.345, +0.289]), so that one is not a resolved change. The four intervals total 87.48 h of **reported event exposure, not measured downtime**.
+
+### Early warning is essentially absent
+
+Across every detector and event, the longest lead time observed is **0.083 h (about 5 minutes)**, on E02. E03's first alert lands at 0.0 h — exactly at the reported start, which is detection, not prediction. No detector warned ahead of E01, and **E04 produced zero alert bins in every detector**. That 5-minute figure also deserves scepticism: these detectors fire in 281 of E01's 283 eligible bins, so background alerting alone can manufacture apparent lead time.
+
+![Failure windows](reports/figures/failure_windows.png)
+
+## How the evaluation stays honest
+
+- **Chronological splits only.** February fits, March sets 99th-percentile score thresholds, April onward tests. No random split, no full-data scaling, no retrospective interpolation.
+- **Causal features.** Rolling features use previous observations only; a bin's features exist only once the bin completes. Rolling-z therefore has natural warm-up gaps.
+- **Labels never touch training.** Event intervals are used for scoring and the separate failure investigation only. Calibration uses no failure outcomes.
+- **Quality gates before alerts.** Bins below 80% sampling coverage or 95% complete records are ineligible; alerts never bridge unavailable intervals.
+- **Thresholds are empirical quantiles**, not manufacturer safety limits. Physical extremes are retained rather than clipped to unsupported ranges.
+- **Downtime is not inferred.** Missing observations do not prove the machine was down, and event duration is not downtime.
+
+Full design in [`docs/methodology.md`](docs/methodology.md); column-by-column definitions in [`docs/dataset.md`](docs/dataset.md).
+
+## Project layout
+
+```
+ingestion/     validate CSV, load PostgreSQL, replay recorded telemetry as JSONL
+src/           preprocessing, causal features, six detectors, evaluation, reliability
+notebooks/     01–06, executed with charts and written interpretation
+app/           Streamlit dashboard (performance, quality, anomaly, failure tabs)
+dashboards/    published Tableau workbook (.twbx) + the specification it followed
+sql/           PostgreSQL schema and engineering queries
+data/          raw (git-ignored), reference failure intervals, processed outputs
+reports/       computed report, figures, quality audit, run manifest, verification
+tests/         integrity, leakage, event-boundary, app and optional DB tests
+docs/          dataset dictionary and methodology
+```
+
+## Quick start (Python 3.11+)
 
 ```bash
 python -m venv .venv
@@ -24,65 +101,60 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-Place the original `MetroPT3(AirCompressor)(1).csv` in `data/raw/` and rename it `MetroPT3.csv`. The large raw CSV and row-level outputs are not committed; all aggregated results and executed notebooks are. Verify your file against `reports/run_manifest.json` if reproducing the delivered analysis.
+Download `MetroPT3(AirCompressor)(1).csv` from [UCI](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), place it in `data/raw/` and rename it `MetroPT3.csv`. Check it against `reports/run_manifest.json` if you are reproducing the delivered numbers.
 
 ```bash
-python -m src.pipeline --csv data/raw/MetroPT3.csv
-python -m pytest -q
-streamlit run app/streamlit_app.py
+python -m src.pipeline --csv data/raw/MetroPT3.csv   # regenerates every figure and table above
+python -m pytest -q                                   # 12 passed, 1 skipped
+streamlit run app/streamlit_app.py                    # local dashboard
 ```
 
-The complete pipeline writes cleaned row-level Parquet, quarantine records, five-minute metrics, daily KPIs, model comparison, cycle details, event investigation, charts, report and fitted model. It is a batch historical monitor. JSONL replay demonstrates ingestion timing and is not an online model-serving system.
-
-```bash
-python -m ingestion.validate_sensor_data data/raw/MetroPT3.csv
-python -m ingestion.streaming_simulator data/raw/MetroPT3.csv --limit 100 --delay 0.1
-```
+Optional, without a Jupyter server: `python scripts/execute_notebooks.py` reruns all six notebooks. Exact packages for the delivered run are in `requirements-lock.txt`.
 
 ## Large files and Git
 
-These files are generated by `python -m src.pipeline --csv data/raw/MetroPT3.csv` and are git-ignored to keep the repository light:
+Generated outputs are git-ignored to keep the repository cloneable. `python -m src.pipeline` recreates all of them:
 
 | File | Size | Needed for |
 | --- | --- | --- |
-| `data/raw/MetroPT3.csv` | ~66 MB | everything; download from [UCI MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset) |
+| `data/raw/MetroPT3.csv` | ~66 MB | everything; download from [UCI](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset) |
 | `data/processed/tableau_monitoring_5min.csv` | ~61 MB | reconnecting the workbook to live data |
 | `data/processed/monitoring_5min.parquet` | ~20 MB | the Streamlit app |
 | `models/detectors.joblib` | ~9 MB | reusing the fitted detectors |
 
-`dashboards/IoT_Hardware_Performance_Monitoring.twbx` (~19 MB) is committed deliberately: it carries the embedded extract, so the published dashboards can be opened without regenerating any of the above. Without that workbook, the published views still work; only offline editing requires it.
+`dashboards/IoT_Hardware_Performance_Monitoring.twbx` (~19 MB) is committed on purpose — it carries the embedded extract, which is the only way to open the dashboards offline.
 
 ## PostgreSQL
 
-Set `POSTGRES_PASSWORD` in a local `.env` copied from `.env.example`, then run `docker compose up -d`. Set `DATABASE_URL` in your shell; the Python loader does not load `.env` automatically.
+Set `POSTGRES_PASSWORD` in a local `.env` copied from `.env.example`, then `docker compose up -d`. Export `DATABASE_URL` yourself; the loader does not read `.env`.
 
 ```bash
 # Bash
 export DATABASE_URL='postgresql://metropt:YOUR_PASSWORD@localhost:5432/metropt'
-# PowerShell equivalent: $env:DATABASE_URL='postgresql://metropt:YOUR_PASSWORD@localhost:5432/metropt'
+# PowerShell
+$env:DATABASE_URL='postgresql://metropt:YOUR_PASSWORD@localhost:5432/metropt'
 python -m ingestion.load_sensor_data
 ```
 
-The loader uses a transaction, temporary staging, PostgreSQL COPY and timestamp upserts. Rerunning the same input does not duplicate rows. SQL files contain monitoring, event and telemetry-gap queries. Set `TEST_DATABASE_URL` to a disposable database to run the integration test. See `reports/verification.md` for what was actually executed in this build.
+Loading uses a transaction, temporary staging, PostgreSQL `COPY` and timestamp upserts, so rerunning the same input does not duplicate rows. Set `TEST_DATABASE_URL` to a disposable database to enable the integration test.
 
-## Navigation
+## What was actually verified
 
-- `ingestion/`: validate, load PostgreSQL, replay recorded telemetry.
-- `src/`: preprocessing, causal features, six detectors, evaluation and reliability investigation.
-- `notebooks/`: six notebooks with executed analysis, charts and interpretations.
-- `data/reference/`: documented failure intervals.
-- `data/processed/`: calculated outputs; Tableau-ready CSVs.
-- `sql/`: PostgreSQL schema and engineering queries.
-- `app/`: Streamlit dashboard with performance, quality, anomaly and failure views.
-- `reports/`: computed report, charts, data-quality audit and provenance.
-- `tests/`: data integrity, leakage, event boundaries, app and optional database tests.
-- `docs/`: dataset dictionary and methodology.
-- `dashboards/`: published Tableau workbook (`.twbx`) and the build specification it followed.
+- Pipeline ran end to end on the real CSV; source SHA-256, split sizes and thresholds recorded in `reports/run_manifest.json`.
+- All six notebooks executed — 30 cells, outputs saved.
+- 12 tests passed, 1 skipped (the skipped one needs a live PostgreSQL socket).
+- PostgreSQL 17.11 standalone: schema created, all 1,516,948 readings loaded, repeat upsert left the row count unchanged, every SQL query executed.
+- Streamlit: `AppTest` exercised all four tabs, four KPI cards and both selectors without exceptions.
+- Tableau workbook built and published; the four live views above were confirmed by rendering each one.
 
-## Interpretation
+Still unvalidated on this machine: the live psycopg connection path (no TCP/Unix sockets permitted) and the PostgreSQL 16 Docker image specifically. Details in [`reports/verification.md`](reports/verification.md).
 
-February trains; March calibrates; April onward tests. Proxy precision/recall/F1 compare alerts with documented intervals, not complete ground truth. Outside-window alerts are not necessarily false. Reported event duration is not actual downtime. No MTBF, MTTR, RUL or deployment benefit is claimed without evidence. Flatline flags require engineering review.
+## Limits you should read before quoting any number
 
-Dataset attribution: Davari et al. (2021), [MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), DOI 10.24432/C5VW3R, CC BY 4.0. Timestamps are kept in their original unspecified local timezone. The dashboards are published on Tableau Public; the dataset itself is redistributed only under its CC BY 4.0 terms through the UCI source above.
+Four documented events on one compressor cannot support fleet-level claims, and the event log may be incomplete. Outside-window alerts are *proxy* false positives, not confirmed false alarms. Unlabelled periods are not guaranteed healthy. Reported event duration is not downtime, and no MTBF, MTTR, RUL or cost benefit is estimated because verified operating hours and repair records are absent. Simultaneous analog flatlining is a telemetry concern with an unconfirmed cause — a constant sensor can be legitimate, especially a digital state. Timestamps keep their original unspecified local timezone.
 
-To rerun all six notebooks without a Jupyter server: `python scripts/execute_notebooks.py`. Exact packages used for the delivered run are in `requirements-lock.txt`.
+Recommended next steps, in order: obtain shutdown/repair/operating-hour records, pilot alerts in shadow mode with an engineer-chosen alert budget, then validate on a later unseen period and additional equipment.
+
+## Dataset and licence
+
+Davari, Veloso, Ribeiro and Gama (2021). [MetroPT-3](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset), UCI Machine Learning Repository, DOI 10.24432/C5VW3R, CC BY 4.0. This project analyses the 2020 MetroPT-3 release, not the different 2022 MetroPT data. Redistributed here only as aggregated derived outputs; the raw dataset is fetched from the source above.

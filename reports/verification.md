@@ -9,4 +9,4 @@
 - Streamlit: AppTest loaded all four tabs and four KPI cards and changed both detector and sensor selectors without exceptions. No public deployment was performed.
 - Analysis charts: inspected for readable labels, plotted data and unclipped axes. Selected notebook plots were also visually checked.
 - Archive: validated required paths, six executed notebooks and ZIP integrity. The raw CSV and full row-level Parquet are intentionally excluded. Aggregated outputs, model artifacts, report, app and all source code are included.
-- Tableau: CSV exports and workbook-building guide provided. No new `.twbx` was built or tested in this delivery.
+- Tableau: the workbook was subsequently built from `tableau_monitoring_5min.csv` and published as `IoT_Hardware_Performance_Monitoring` on Tableau Public. All four dashboards were confirmed by rendering each live view. The packaged `.twbx` is committed at `dashboards/IoT_Hardware_Performance_Monitoring.twbx`; it was not re-executed or re-validated against a changed dataset after publication.

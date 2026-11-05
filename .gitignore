@@ -1,0 +1,14 @@
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+.env
+data/raw/*
+!data/raw/.gitkeep
+data/processed/readings.parquet
+models/*.joblib
+*.log
+
+# Generated outputs too large for GitHub; recreate with python -m src.pipeline
+data/processed/tableau_monitoring_5min.csv
+data/processed/monitoring_5min.parquet

@@ -1,0 +1,5 @@
+event_id,start,end,type,source,notes
+E01,2020-04-18 00:00:00,2020-04-18 23:59:00,air_leak,https://archive.ics.uci.edu/dataset/791/metropt+3+dataset,Reported interval; not verified outage
+E02,2020-05-29 23:30:00,2020-05-30 06:00:00,air_leak,https://archive.ics.uci.edu/dataset/791/metropt+3+dataset,Source repeats event number 1 and gives inconsistent maintenance date 30Apr; not used
+E03,2020-06-05 10:00:00,2020-06-07 14:30:00,air_leak,https://archive.ics.uci.edu/dataset/791/metropt+3+dataset,Reported interval; not verified outage
+E04,2020-07-15 14:30:00,2020-07-15 19:00:00,air_leak,https://archive.ics.uci.edu/dataset/791/metropt+3+dataset,Reported interval; not verified outage

@@ -1,0 +1,22 @@
+{
+  "input_name": "MetroPT3.csv",
+  "input_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
+  "source": "https://archive.ics.uci.edu/dataset/791/metropt+3+dataset",
+  "python": "3.12.14",
+  "pandas": "2.2.3",
+  "train_bins": 8351,
+  "validation_bins": 8928,
+  "test_bins": 44113,
+  "thresholds": {
+    "zscore": 39.32630882063207,
+    "rolling_z": 161.67637806445092,
+    "cusum": 74.20089449923283,
+    "isolation_forest": 0.7148956650447503,
+    "mahalanobis": 164862.5762710403,
+    "threshold": 3.522291635122123
+  },
+  "seed": 42,
+  "analysis_frequency": "5min",
+  "timestamp_timezone": "unspecified local time; no UTC conversion",
+  "run_utc": "2026-11-05T08:46:52.851175+00:00"
+}

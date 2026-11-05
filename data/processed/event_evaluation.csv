@@ -1,0 +1,25 @@
+model,event_id,observed,eligible_event_bins,alert_bins,detected_during_event,first_event_alert,warning_in_previous_24h,first_warning,lead_hours
+zscore,E01,True,283,281,True,2020-04-18 00:40:00,False,NaT,
+zscore,E02,True,79,77,True,2020-05-29 23:35:00,True,2020-05-29 23:25:00,0.08333333333333333
+zscore,E03,True,571,567,True,2020-06-05 10:05:00,True,2020-06-05 10:00:00,0.0
+zscore,E04,True,54,0,False,NaT,False,NaT,
+rolling_z,E01,True,283,0,False,NaT,False,NaT,
+rolling_z,E02,True,79,0,False,NaT,False,NaT,
+rolling_z,E03,True,571,0,False,NaT,False,NaT,
+rolling_z,E04,True,54,0,False,NaT,False,NaT,
+cusum,E01,True,283,281,True,2020-04-18 00:40:00,False,NaT,
+cusum,E02,True,79,77,True,2020-05-29 23:35:00,True,2020-05-29 23:25:00,0.08333333333333333
+cusum,E03,True,571,566,True,2020-06-05 10:05:00,True,2020-06-05 10:00:00,0.0
+cusum,E04,True,54,0,False,NaT,False,NaT,
+isolation_forest,E01,True,283,0,False,NaT,False,NaT,
+isolation_forest,E02,True,79,0,False,NaT,False,NaT,
+isolation_forest,E03,True,571,1,True,2020-06-06 20:05:00,False,NaT,
+isolation_forest,E04,True,54,0,False,NaT,False,NaT,
+mahalanobis,E01,True,283,281,True,2020-04-18 00:40:00,False,NaT,
+mahalanobis,E02,True,79,77,True,2020-05-29 23:35:00,True,2020-05-29 23:25:00,0.08333333333333333
+mahalanobis,E03,True,571,567,True,2020-06-05 10:05:00,True,2020-06-05 10:00:00,0.0
+mahalanobis,E04,True,54,0,False,NaT,False,NaT,
+threshold,E01,True,283,281,True,2020-04-18 00:40:00,False,NaT,
+threshold,E02,True,79,77,True,2020-05-29 23:35:00,True,2020-05-29 23:25:00,0.08333333333333333
+threshold,E03,True,571,567,True,2020-06-05 10:05:00,True,2020-06-05 10:00:00,0.0
+threshold,E04,True,54,0,False,NaT,False,NaT,

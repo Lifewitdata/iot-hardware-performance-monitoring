@@ -1,0 +1,12 @@
+# Verification performed
+
+- Real input: 1,516,948 readings. The complete pipeline ran successfully; source SHA-256, timestamps, split sizes and thresholds are in `run_manifest.json`.
+- Six notebooks: all 30 Python cells executed successfully and outputs saved; notebook structure validated. Execution used an in-process Python runner because this environment blocks kernel sockets. The notebook code remains standard Jupyter Python. Rerun with `python scripts/execute_notebooks.py` or Jupyter.
+- Automated tests: 12 passed, 1 skipped. Checks cover conflicting duplicates, invalid data, gap-aware flatline detection, causal features, unavailable bins, event boundaries, split order, test-data perturbation/leakage, cycle censoring, simultaneous-flatline eligibility and Streamlit loading/filter interactions.
+- One warning originates in the installed pytest plugin's deprecated API; no failed project checks.
+- PostgreSQL 17.11 standalone: created the schema, loaded all 1,516,948 readings, repeated the upsert without changing the row count, and executed every monitoring/anomaly/reliability SQL query. Output is in `postgresql_standalone_verification.txt`.
+- Live PostgreSQL connection test: skipped because this environment prohibits TCP and Unix-domain sockets. The psycopg COPY loader is implemented but its connection path still requires validation on a machine with PostgreSQL running. The Docker configuration targets PostgreSQL 16; that exact image was not run here.
+- Streamlit: AppTest loaded all four tabs and four KPI cards and changed both detector and sensor selectors without exceptions. No public deployment was performed.
+- Analysis charts: inspected for readable labels, plotted data and unclipped axes. Selected notebook plots were also visually checked.
+- Archive: validated required paths, six executed notebooks and ZIP integrity. The raw CSV and full row-level Parquet are intentionally excluded. Aggregated outputs, model artifacts, report, app and all source code are included.
+- Tableau: CSV exports and workbook-building guide provided. No new `.twbx` was built or tested in this delivery.
